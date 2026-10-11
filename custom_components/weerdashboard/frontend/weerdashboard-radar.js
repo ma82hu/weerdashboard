@@ -1,12 +1,17 @@
-/* Weerdashboard-radar v0.2.0 - KNMI radar (waarneming) en KNMI nowcast (verwachting) */
+/* Weerdashboard-radar v0.2.1 - KNMI radar (waarneming) en KNMI nowcast (verwachting) */
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-const TILES = {
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+const BASEMAPS = {
+  pdok_grijs: { label: 'Nederland, grijs (PDOK)', url: 'https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png',
+    attr: 'Kaartgegevens &copy; <a href="https://www.pdok.nl/">Kadaster/PDOK</a>' },
+  pdok_standaard: { label: 'Nederland, kleur (PDOK)', url: 'https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png',
+    attr: 'Kaartgegevens &copy; <a href="https://www.pdok.nl/">Kadaster/PDOK</a>' },
+  osm: { label: 'Wereld (OpenStreetMap)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers' },
 };
-const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* negeren */ } };
 let leafletPromise = null;
 const loadLeaflet = () => leafletPromise || (leafletPromise = new Promise((resolve, reject) => {
   if (window.L && window.L.map) return resolve(window.L);
@@ -49,6 +54,7 @@ input[type=range]{flex:1;min-width:140px}
 .warn{background:#f0a50022;border:1px solid #f0a500;border-radius:8px;padding:6px 10px;font-size:.9em}
 .leg{display:flex;gap:16px;flex-wrap:wrap}.leg img{max-width:150px;height:auto;background:#fff;border-radius:6px}
 .miss{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:500;background:var(--card-background-color);padding:8px 14px;border-radius:8px;border:1px solid var(--divider-color);pointer-events:none}
+#map.dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
 [hidden]{display:none!important}
 `;
 
@@ -64,7 +70,7 @@ class WeerdashboardRadar extends HTMLElement {
         <div id="map"><div class="miss" id="miss" hidden></div></div>
         <div class="ctl"><button id="prev" title="Vorig tijdstip" aria-label="Vorig tijdstip">⏮</button><button id="play" title="Afspelen" aria-label="Afspelen">▶</button><button id="next" title="Volgend tijdstip" aria-label="Volgend tijdstip">⏭</button>
           <input type="range" id="sl" min="0" max="0" value="0" aria-label="Tijdstip"><select id="spd" aria-label="Afspeelsnelheid"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
-          <button id="here">◎ Mijn locatie</button><button id="legb">Legenda</button></div>
+          <select id="base" aria-label="Achtergrondkaart">${Object.entries(BASEMAPS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select><button id="here">◎ Mijn locatie</button><button id="legb">Legenda</button></div>
         <div class="track" id="track" aria-hidden="true"></div>
         <div class="tl"><span id="t0"></span><span id="tn">nu</span><span id="t1"></span></div>
         <div class="leg" id="leg" hidden></div>
@@ -76,10 +82,13 @@ class WeerdashboardRadar extends HTMLElement {
     $('next').onclick = () => { this.pause(); this.show(stepIndex(this.frames, this.idx, 1)); };
     $('sl').oninput = e => { this.pause(); this.show(+e.target.value); };
     $('spd').onchange = e => { this.speed = +e.target.value; };
+    this.baseKey = BASEMAPS[lsGet('wd_base', '')] ? lsGet('wd_base', '') : 'pdok_grijs';
+    $('base').value = this.baseKey;
+    $('base').onchange = e => { this.baseKey = e.target.value; lsSet('wd_base', this.baseKey); this.setBase(this.baseKey); };
     $('here').onclick = () => { if (this.map && this.loc) this.map.setView([this.loc.lat, this.loc.lon], 9); };
     $('legb').onclick = () => this.toggleLegend();
   }
-  set hass(h) { this._hass = h; this._dark = !!(h && h.themes && h.themes.darkMode); if (!this._started) { this._started = true; this._start(); } }
+  set hass(h) { this._hass = h; this._dark = !!(h && h.themes && h.themes.darkMode); const m = this.$ && this.$('map'); if (m && m.classList) m.classList.toggle('dark', this._dark); if (!this._started) { this._started = true; this._start(); } }
   setLocation(loc, tz) {
     this.loc = loc; if (tz) this.tz = tz;
     if (this.map && loc) this.placeMarker();
@@ -98,13 +107,22 @@ class WeerdashboardRadar extends HTMLElement {
   async _start() {
     try { this.L = await loadLeaflet(); } catch (e) { this.$('msg').innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
     const L = this.L;
-    this.map = L.map(this.$('map'), { minZoom: 5, maxZoom: 12, zoomSnap: 0.5 }).setView([52.2, 5.3], 7);
-    L.tileLayer(this._dark ? TILES.dark : TILES.light, { attribution: ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(this.map);
+    this.map = L.map(this.$('map'), { minZoom: 6, maxZoom: 12, zoomSnap: 0.5 }).setView([52.2, 5.3], 7);
+    this.setBase(this.baseKey);
     this.ready = true;
     if (this.loc) this.placeMarker();
     this.refresh = setInterval(() => document.visibilityState === 'visible' && this.loadFrames(true), 300000);
     await this.loadFrames();
     setTimeout(() => this.map.invalidateSize(), 100);
+  }
+  setBase(key) {
+    if (!this.map) return;
+    const b = BASEMAPS[key] || BASEMAPS.pdok_grijs;
+    if (this.base) this.base.remove();
+    // referrerPolicy: Home Assistant onderdrukt de Referer standaard, maar OpenStreetMap eist die
+    this.base = this.L.tileLayer(b.url, { attribution: b.attr, maxZoom: 19, minZoom: 6, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(this.map);
+    if (this.base.bringToBack) this.base.bringToBack();
+    const m = this.$('map'); if (m && m.classList) m.classList.toggle('dark', !!this._dark);
   }
   placeMarker() {
     const L = this.L, p = [this.loc.lat, this.loc.lon];
@@ -123,7 +141,7 @@ class WeerdashboardRadar extends HTMLElement {
     const errs = (d.errors || []).map(e => `<div class="warn">⚠ ${esc(e)}</div>`).join('');
     const note = d.mode === 'anonymous' ? '<div class="muted">Anonieme KNMI-toegang (gedeelde limiet). Voeg een eigen KNMI API-sleutel toe via Instellingen → Weerdashboard → Configureren voor betrouwbaarder gebruik.</div>' : '';
     this.$('msg').innerHTML = errs + (d.frames.length ? '' : '<div class="warn">Er zijn nu geen radarbeelden beschikbaar.</div>') + note;
-    this.$('src').innerHTML = 'Bron: KNMI Data Platform. Groen = waargenomen radar, oranje = verwachting (KNMI nowcast), twee verschillende producten. Licentie CC-BY-4.0. Kaart: &copy; OpenStreetMap, &copy; CARTO.';
+    this.$('src').innerHTML = 'Bron: KNMI Data Platform. Groen = waargenomen radar, oranje = verwachting (KNMI nowcast), twee verschillende producten. Licentie CC-BY-4.0. Bronvermelding van de kaart staat rechtsonder in de kaart.';
     if (!this.ready) return;
     if (this.ov[0] === null) {
       const L = this.L;
