@@ -1,0 +1,13 @@
+{
+  "domain": "weerdashboard",
+  "name": "Weerdashboard",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "websocket_api"],
+  "documentation": "https://github.com/JOUW-GEBRUIKERSNAAM/weerdashboard",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/JOUW-GEBRUIKERSNAAM/weerdashboard/issues",
+  "requirements": [],
+  "version": "0.2.0"
+}

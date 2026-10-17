@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Weerdashboard",
+        "description": "Installs the Dutch weather dashboard. Set your home and extra locations afterwards in the card itself."
+      }
+    },
+    "abort": {
+      "already_configured": "Weerdashboard is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Rain gear advice",
+        "description": "Rain is judged on intensity in mm/h, not on probability. Without a KNMI key the radar uses anonymous access with a shared limit.",
+        "data": {
+          "window_h": "Default time window (hours)",
+          "light_mm_h": "Rain jacket from (mm/h)",
+          "heavy_mm_h": "Rain suit from (mm/h)",
+          "gust_kmh": "Rain suit when raining with gusts from (km/h)",
+          "knmi_api_key": "KNMI API key (optional, for the radar)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "window_h": {
+      "options": {
+        "1": "1 hour",
+        "2": "2 hours",
+        "4": "4 hours"
+      }
+    }
+  }
+}
