@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Weerdashboard",
+        "description": "Installeert het Nederlandstalige weerdashboard. Je thuislocatie en extra locaties stel je daarna in via de kaart zelf."
+      }
+    },
+    "abort": {
+      "already_configured": "Weerdashboard is al ingesteld."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Regenpak-advies",
+        "description": "Neerslag wordt beoordeeld op intensiteit in mm/u, niet op neerslagkans. Zonder KNMI-sleutel gebruikt de radar de anonieme toegang met een gedeelde limiet.",
+        "data": {
+          "window_h": "Standaard tijdvenster (uur)",
+          "light_mm_h": "Regenjas vanaf (mm/u)",
+          "heavy_mm_h": "Regenpak vanaf (mm/u)",
+          "gust_kmh": "Regenpak bij regen en windstoten vanaf (km/u)",
+          "knmi_api_key": "KNMI API-sleutel (optioneel, voor de radar)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "window_h": {
+      "options": {
+        "1": "1 uur",
+        "2": "2 uur",
+        "4": "4 uur"
+      }
+    }
+  }
+}
