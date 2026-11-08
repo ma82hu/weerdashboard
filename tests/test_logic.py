@@ -109,7 +109,9 @@ class Hourly(unittest.TestCase):
 class Descriptions(unittest.TestCase):
     def test_icons(self):
         for d, i in [("Zonnig", "clear"), ("Half bewolkt", "partly"), ("Zwaar bewolkt", "cloudy"), ("Lichte regen", "rain"),
-                     ("Zware regen", "heavy_rain"), ("Onweersbuien", "thunder"), ("Mist", "fog"), ("Lichte sneeuw", "snow"), (None, "unknown")]:
+                     ("Zware regen", "heavy_rain"), ("Onweersbuien", "thunder"), ("Mist", "fog"), ("Lichte sneeuw", "snow"), (None, "unknown"),
+                     ("Vrijwel onbewolkt (zonnig/helder)", "clear"), ("Half bewolkt (zon en wolken)", "partly"),
+                     ("Mix van opklaringen en middelbare of lage bewolking", "partly"), ("Zwaar bewolkt (bewolkt)", "cloudy")]:
             self.assertEqual(L.icon_from_description(d), i, d)
 
 
