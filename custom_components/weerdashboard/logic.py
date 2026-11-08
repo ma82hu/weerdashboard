@@ -162,11 +162,14 @@ def icon_from_description(desc):
         return "heavy_rain" if "zware" in d or "zwaar" in d else "rain"
     if "mist" in d or "nevel" in d:
         return "fog"
-    if any(k in d for k in ("half", "licht bewolkt", "wolkenvelden", "enkele", "veel zon")):
+    if any(k in d for k in ("half", "licht bewolkt", "wolkenvelden", "enkele", "veel zon", "opklaring", "mix van", "zon en wolken")):
         return "partly"
+    # let op: "onbewolkt" bevat het woord "bewolkt", dus 'helder/onbewolkt' moet vóór 'bewolkt' gecontroleerd worden
+    if any(k in d for k in ("onbewolkt", "helder", "zonnig")):
+        return "clear"
     if "bewolkt" in d:
         return "cloudy"
-    if any(k in d for k in ("zonnig", "helder", "onbewolkt", "zon")):
+    if "zon" in d:
         return "clear"
     return "unknown"
 
